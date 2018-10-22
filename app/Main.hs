@@ -29,7 +29,7 @@ import           Protolude.Conv                     (toS)
 
 import qualified Database.Beam                      as Beam
 import qualified Database.Beam.Postgres             as Pg
-import qualified Database.Beam.Postgres.Syntax            as Pg
+import qualified Database.Beam.Postgres.Syntax      as Pg
 import qualified Database.PostgreSQL.Simple         as PgSimple
 import qualified Database.PostgreSQL.Simple.Types   as PgSimple
 import           Database.Beam.Migrate.SQL.Tables
@@ -38,6 +38,30 @@ import           Database.Beam.Migrate.Types
 
 -- Works for 'Double' fails for 'Int64'
 type MyNum = Int64
+
+-- Run with:
+--      docker run -p 5432:5432 --name postgres-test -e POSTGRES_PASSWORD=test -e POSTGRES_USER=test -e POSTGRES_DB=test -d postgres:9.6
+main :: IO ()
+main =
+    bracket setup teardown doStuff
+  where
+    -- Initialize: Open connection + create tables
+    setup = do
+        conn <- openConn
+        checkedDb <- createTables conn
+        return (conn, checkedDb)
+    -- Clean up: Drop tables + close connection
+    teardown (conn, checkedDb) = do
+        dropTables conn checkedDb
+        Pg.close conn
+    doStuff (conn, _) = do
+        store conn
+        Beam.withDatabaseDebug putStrLn conn pathSumsSelect >>= print
+    openConn :: IO Pg.Connection
+    openConn =
+        Pg.connectPostgreSQL dbUrl
+    dbUrl = "host=localhost port=5432 sslmode=disable user=test password=test dbname=test connect_timeout=10"
+
 
 class MyNumFieldType a where
     myNumFieldType :: DataType Pg.PgDataTypeSyntax a
@@ -184,29 +208,3 @@ newSqlQuery syntax =
     PgSimple.Query (toS sqlFragment)
   where
     sqlFragment = Pg.pgRenderSyntaxScript . Pg.fromPgCommand $ syntax
-
-
--- Run with:
---      docker run -p 5432:5432 --name postgres-test -e POSTGRES_PASSWORD=test -e POSTGRES_USER=test -e POSTGRES_DB=test -d postgres:9.6
-main :: IO ()
-main =
-    bracket setup teardown doStuff
-  where
-    -- Initialize: Open connection + create tables
-    setup = do
-        conn <- openConn
-        checkedDb <- createTables conn
-        return (conn, checkedDb)
-    -- Clean up: Drop tables + close connection
-    teardown (conn, checkedDb) = do
-        dropTables conn checkedDb
-        Pg.close conn
-    doStuff (conn, _) = do
-        store conn
-        Beam.withDatabaseDebug putStrLn conn pathSumsSelect >>= print
-
-openConn :: IO Pg.Connection
-openConn =
-    Pg.connectPostgreSQL dbUrl
-  where
-    dbUrl = "host=localhost port=5432 sslmode=disable user=test password=test dbname=test connect_timeout=10"
