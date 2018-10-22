@@ -37,7 +37,7 @@ import           Database.Beam.Migrate.Types
 
 
 -- Works for 'Double' fails for 'Int64'
-type MyNum = Int64
+type MyNum = Integer
 
 -- Run with:
 --      docker run -p 5432:5432 --name postgres-test -e POSTGRES_PASSWORD=test -e POSTGRES_USER=test -e POSTGRES_DB=test -d postgres:9.6
@@ -69,7 +69,8 @@ instance MyNumFieldType Int64 where
     myNumFieldType = bigint
 instance MyNumFieldType Double where
     myNumFieldType = double
-
+instance MyNumFieldType Integer where
+    myNumFieldType = bigint
 
 data SomeDb f = SomeDb
     { _paths :: f (TableEntity PathT)
@@ -121,9 +122,7 @@ newestPathSums =
    aggregate_
         (\path ->
             ( group_ (_pathSrc path)
-            , fromMaybe_ 0
-                (sum_ (_pathQty path)
-                )
+            , fromMaybe_ 0 (sum_ (_pathQty path))
             )
         )
         (all_ (_paths someDb))
