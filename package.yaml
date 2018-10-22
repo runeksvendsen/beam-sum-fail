@@ -1,0 +1,20 @@
+name:                beam-sum-fail
+version:             0.1.0.0
+
+dependencies:
+- base >= 4.7 && < 5
+- protolude
+- beam-core
+- beam-migrate
+- beam-postgres
+- postgresql-simple
+- text
+- bytestring
+
+executables:
+  example-exe:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -Wall
+    - -fno-warn-name-shadowing

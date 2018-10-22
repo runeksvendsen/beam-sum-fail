@@ -1,0 +1,11 @@
+resolver: lts-12.5
+
+packages:
+- .
+- location:
+    git: https://github.com/runeksvendsen/beam.git
+    commit: ecf3e111510e0668b89a1aa904c0bf17cc6b680e
+    subdirs:
+      - beam-core
+      - beam-postgres
+  extra-dep: true
