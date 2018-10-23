@@ -23,7 +23,7 @@ import           Database.Beam.Postgres.Syntax      (PgExpressionSyntax)
 import           Database.Beam.Backend.SQL.Types    (SqlSerial)
 import           Database.Beam.Migrate.SQL          (DataType)
 import           Data.Word                          (Word32)
-import           Control.Monad                      (void)
+import           Control.Monad                      (void, (<=<))
 import           Control.Exception                  (catch, bracket)
 import           Protolude.Conv                     (toS)
 
@@ -37,7 +37,7 @@ import           Database.Beam.Migrate.Types
 
 
 -- Works for 'Double' fails for 'Int64'
-type MyNum = Integer
+type MyNum = Int64
 
 -- Run with:
 --      docker run -p 5432:5432 --name postgres-test -e POSTGRES_PASSWORD=test -e POSTGRES_USER=test -e POSTGRES_DB=test -d postgres:9.6
@@ -182,20 +182,23 @@ dbDelete checkedDb =
     migrationStep "Delete initial" (\_ -> deleteInitial checkedDb)
 
 createTables :: Pg.Connection -> IO (CheckedDatabaseSettings Pg.Postgres SomeDb)
-createTables conn = runMigration conn dbCreate
+createTables conn = runMigration putStrLn conn dbCreate
 
 
 dropTables
     :: Pg.Connection
     -> CheckedDatabaseSettings Pg.Postgres SomeDb
     -> IO ()
-dropTables conn checkedDb = runMigration conn (dbDelete checkedDb)
+dropTables conn checkedDb = runMigration putStrLn conn (dbDelete checkedDb)
 
 runMigration
-    :: Connection
-    -> MigrationSteps PgCommandSyntax () a -> IO a
-runMigration conn migration =
-    let executeFunction = tryExecute conn . newSqlQuery
+    :: (String -> IO ())
+    -> Connection
+    -> MigrationSteps PgCommandSyntax () a
+    -> IO a
+runMigration queryPrint conn migration =
+    let executeFunction = (tryExecute conn <=< debugPrintQuery) . newSqlQuery
+        debugPrintQuery query = queryPrint (toS $ PgSimple.fromQuery query) >> return query
         tryExecute conn query =
             catch (void $ PgSimple.execute_ conn query)
             (\err -> putStrLn ("ERROR: " ++ show (err :: PgSimple.SqlError)))
